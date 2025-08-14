@@ -28,13 +28,16 @@ class NoteAdapter extends TypeAdapter<Note> {
       audioPath: fields[8] as String?,
       summarizedText: fields[9] as String?,
       translatedText: fields[10] as String?,
+      isArchived: fields[11] as bool,
+      isDeleted: fields[12] as bool,
+      reminderDate: fields[13] as DateTime?,
     );
   }
 
   @override
   void write(BinaryWriter writer, Note obj) {
     writer
-      ..writeByte(11)
+      ..writeByte(14)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -56,7 +59,13 @@ class NoteAdapter extends TypeAdapter<Note> {
       ..writeByte(9)
       ..write(obj.summarizedText)
       ..writeByte(10)
-      ..write(obj.translatedText);
+      ..write(obj.translatedText)
+      ..writeByte(11)
+      ..write(obj.isArchived)
+      ..writeByte(12)
+      ..write(obj.isDeleted)
+      ..writeByte(13)
+      ..write(obj.reminderDate);
   }
 
   @override
