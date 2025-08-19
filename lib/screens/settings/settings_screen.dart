@@ -1,3 +1,4 @@
+// lib/screens/settings/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_notes/providers/theme_provider.dart';

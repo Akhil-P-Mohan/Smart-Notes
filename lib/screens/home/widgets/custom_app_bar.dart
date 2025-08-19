@@ -1,3 +1,4 @@
+// lib/screens/home/widgets/custom_app_bar.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_notes/providers/search_provider.dart';

@@ -1,3 +1,5 @@
+// lib/models/note_model.dart
+
 import 'package:hive/hive.dart';
 import 'package:smart_notes/models/checklist_item_model.dart';
 

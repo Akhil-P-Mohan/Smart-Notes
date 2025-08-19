@@ -1,3 +1,4 @@
+// lib/screens/home/widgets/menu_drawer.dart
 import 'package:flutter/material.dart';
 import 'package:smart_notes/screens/about/about_screen.dart';
 import 'package:smart_notes/screens/archive/archive_screen.dart'; // Import archive screen

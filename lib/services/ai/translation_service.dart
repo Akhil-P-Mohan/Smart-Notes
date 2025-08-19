@@ -1,3 +1,4 @@
+// lib/services/ai/translation_service.dart
 class TranslationService {
   /// Translates text from a source language to a target language.
   /// This is a placeholder for a real translation API.

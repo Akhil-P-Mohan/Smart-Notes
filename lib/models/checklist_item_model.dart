@@ -1,3 +1,4 @@
+// lib/models/checklist_item_model.dart
 import 'package:hive/hive.dart';
 
 part 'checklist_item_model.g.dart';

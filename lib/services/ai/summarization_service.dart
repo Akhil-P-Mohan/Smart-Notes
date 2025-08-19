@@ -1,3 +1,4 @@
+// lib/services/ai/summarization_service.dart
 class SummarizationService {
   /// Generates a summary and a smart title for a given text.
   /// This is a placeholder for an AI summarization API.

@@ -1,3 +1,4 @@
+# pubspec.yaml
 name: smart_notes
 description: A new Flutter project.
 
@@ -12,18 +13,18 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_riverpod: ^2.4.0
-  intl: ^0.18.1
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  image_picker: ^1.0.4 # For image selection
-  camera: ^0.10.5+2 # For camera access
+  image_picker: ^1.0.4
+  camera: ^0.10.5+9 # Or the latest compatible version
   path_provider: ^2.1.1
   google_fonts: ^6.1.0
   flutter_staggered_grid_view: ^0.7.0
-  image_cropper: ^5.0.1
-  flutter_tesseract_ocr: ^0.4.24 # Add this line
+  cropperx: ^1.1.1  # This version should work with v2 embedding
+  google_mlkit_text_recognition: ^0.11.0
   uuid: ^4.3.3
   permission_handler: ^11.0.1
+  intl: ^0.18.1
 
 dev_dependencies:
   flutter_test:

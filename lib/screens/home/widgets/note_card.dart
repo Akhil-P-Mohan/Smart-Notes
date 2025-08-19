@@ -1,3 +1,4 @@
+// lib/screens/home/widgets/note_card.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_notes/models/note_model.dart';

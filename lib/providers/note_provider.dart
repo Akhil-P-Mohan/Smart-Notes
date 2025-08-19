@@ -1,3 +1,5 @@
+// lib/providers/note_provider.dart
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_notes/models/note_model.dart';
 import 'package:smart_notes/services/database/local_storage_service.dart';

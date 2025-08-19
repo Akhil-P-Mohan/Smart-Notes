@@ -1,3 +1,5 @@
+// lib/utils/dummy_data.dart
+
 import 'package:smart_notes/models/note_model.dart';
 
 // Dummy data for initial testing

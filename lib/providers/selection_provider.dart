@@ -1,3 +1,4 @@
+// lib/providers/selection_provider.dart
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 // Provider to manage the set of selected note IDs

@@ -1,3 +1,4 @@
+// lib/screens/note/widgets/note_app_bar.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_notes/models/note_model.dart';

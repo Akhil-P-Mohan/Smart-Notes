@@ -1,3 +1,4 @@
+// lib/services/database/local_storage_service.dart
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_notes/models/note_model.dart';
 

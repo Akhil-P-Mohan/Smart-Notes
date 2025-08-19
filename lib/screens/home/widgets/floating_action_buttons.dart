@@ -1,46 +1,58 @@
+// lib/screens/home/widgets/floating_action_buttons.dart
+
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:smart_notes/models/note_model.dart';
+import 'package:smart_notes/providers/note_provider.dart';
 import 'package:smart_notes/screens/note/note_screen.dart';
 import 'package:smart_notes/services/ai/ocr_service.dart';
 import 'package:smart_notes/services/ai/voice_to_text_service.dart';
 import 'package:uuid/uuid.dart';
 
-class FloatingActionButtons extends StatelessWidget {
+class FloatingActionButtons extends ConsumerWidget {
   const FloatingActionButtons({super.key});
 
-  /// Shows a language selection dialog before starting Tesseract OCR.
-  Future<void> _showLanguagePicker(BuildContext context) async {
-    // Show a dialog and wait for the user to select a language code string
+  Future<void> _showLanguagePicker(BuildContext context, WidgetRef ref) async {
     final String? selectedLanguage = await showDialog(
       context: context,
       builder: (context) => const OcrLanguageDialog(),
     );
 
-    if (selectedLanguage == null) return; // User canceled
+    if (selectedLanguage == null || !context.mounted) return;
 
-    // Proceed with OCR using the selected language
     final ocrService = OcrService();
     final extractedText =
-        await ocrService.processImageWithLanguage(selectedLanguage);
+        await ocrService.processImageWithLanguage(context, selectedLanguage);
 
-    if (extractedText.isNotEmpty && context.mounted) {
+    if (extractedText.isNotEmpty &&
+        !extractedText.contains('Error') &&
+        context.mounted) {
+      final newNote = Note(
+        id: const Uuid().v4(),
+        title: extractedText.split('\n').first,
+        content: extractedText,
+        dateCreated: DateTime.now(),
+        dateModified: DateTime.now(),
+      );
+
+      // Use the correct 'updateNote' method which handles adding new notes
+      ref.read(noteProvider.notifier).updateNote(newNote);
+
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => NoteScreen(
-            note: Note(
-              id: const Uuid().v4(),
-              content: extractedText,
-              dateCreated: DateTime.now(),
-              dateModified: DateTime.now(),
-            ),
+            note: newNote,
           ),
         ),
       );
     } else if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No text was extracted.')),
+        SnackBar(
+            content: Text(extractedText.contains('Error')
+                ? extractedText
+                : 'No text was extracted.')),
       );
     }
   }
@@ -62,7 +74,7 @@ class FloatingActionButtons extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
@@ -73,11 +85,15 @@ class FloatingActionButtons extends StatelessWidget {
             if (await Permission.microphone.request().isGranted) {
               final voiceService = VoiceToTextService();
               final result = await voiceService.startListening();
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(SnackBar(content: Text(result)));
+              if (context.mounted) {
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(SnackBar(content: Text(result)));
+              }
             } else {
-              _showPermissionDialog(context,
-                  'Microphone permission is required to use voice-to-text.');
+              if (context.mounted) {
+                _showPermissionDialog(context,
+                    'Microphone permission is required to use voice-to-text.');
+              }
             }
           },
           child: const Icon(Icons.mic),
@@ -88,10 +104,12 @@ class FloatingActionButtons extends StatelessWidget {
           mini: true,
           onPressed: () async {
             if (await Permission.camera.request().isGranted) {
-              _showLanguagePicker(context);
+              _showLanguagePicker(context, ref);
             } else {
-              _showPermissionDialog(
-                  context, 'Camera permission is required to use OCR.');
+              if (context.mounted) {
+                _showPermissionDialog(
+                    context, 'Camera permission is required to use OCR.');
+              }
             }
           },
           child: const Icon(Icons.camera_alt),
@@ -113,7 +131,8 @@ class FloatingActionButtons extends StatelessWidget {
   }
 }
 
-/// A dialog widget to let the user choose the OCR language for Tesseract.
+/// A dialog widget to let the user choose the OCR language.
+// *** THIS IS THE FIX: Providing the full implementation of the class ***
 class OcrLanguageDialog extends StatelessWidget {
   const OcrLanguageDialog({super.key});
 
@@ -121,21 +140,22 @@ class OcrLanguageDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return AlertDialog(
       title: const Text('Select Language for OCR'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildLanguageOption(context, title: 'English', languageCode: 'eng'),
-          _buildLanguageOption(context,
-              title: 'Hindi (हिंदी)', languageCode: 'hin'),
-          // --- ADD THIS LINE ---
-          _buildLanguageOption(context,
-              title: 'Kannada (ಕನ್ನಡ)', languageCode: 'kan'),
-          // -------------------
-          _buildLanguageOption(context,
-              title: 'Malayalam (മലയാളം)', languageCode: 'mal'),
-          _buildLanguageOption(context,
-              title: 'Tamil (தமிழ்)', languageCode: 'tam'),
-        ],
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildLanguageOption(context,
+                title: 'English', languageCode: 'eng'),
+            _buildLanguageOption(context,
+                title: 'Hindi (हिंदी)', languageCode: 'hin'),
+            _buildLanguageOption(context,
+                title: 'Chinese (中文)', languageCode: 'chi'),
+            _buildLanguageOption(context,
+                title: 'Japanese (日本語)', languageCode: 'jpn'),
+            _buildLanguageOption(context,
+                title: 'Korean (한국어)', languageCode: 'kor'),
+          ],
+        ),
       ),
       actions: [
         TextButton(

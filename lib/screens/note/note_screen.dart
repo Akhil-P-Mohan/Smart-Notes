@@ -1,3 +1,6 @@
+// lib/screens/note/note_screen.dart
+
+// *** FIX: Corrected the import path ***
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,10 +23,13 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
   late TextEditingController _contentController;
   Timer? _debounce;
   late Note _currentNote;
+  bool _isNewNote = false;
 
   @override
   void initState() {
     super.initState();
+    _isNewNote = widget.note == null;
+
     _currentNote = widget.note ??
         Note(
           id: const Uuid().v4(),
@@ -40,7 +46,7 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
     _contentController.addListener(_onTextChanged);
   }
 
-  _onTextChanged() {
+  void _onTextChanged() {
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 800), () {
       _saveNote();
@@ -48,25 +54,37 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
   }
 
   void _saveNote() {
-    if (_titleController.text.isEmpty && _contentController.text.isEmpty) {
-      return;
+    final title = _titleController.text;
+    final content = _contentController.text;
+
+    // If both title and content are empty...
+    if (title.isEmpty && content.isEmpty) {
+      // and it's an existing note, delete it.
+      if (!_isNewNote) {
+        // *** FIX: Call the correct delete method ***
+        ref.read(noteProvider.notifier).permanentlyDeleteNote(_currentNote.id);
+      }
+      return; // Don't save empty notes.
     }
 
-    final updatedNote = Note(
-      id: _currentNote.id,
-      title: _titleController.text,
-      content: _contentController.text,
-      dateCreated: _currentNote.dateCreated,
+    final updatedNote = _currentNote.copyWith(
+      title: title,
+      content: content,
       dateModified: DateTime.now(),
-      isPinned: _currentNote.isPinned,
-      checklist: _currentNote.checklist,
-      imageUrl: _currentNote.imageUrl,
-      audioPath: _currentNote.audioPath,
     );
+
     setState(() {
       _currentNote = updatedNote;
     });
+
+    // *** FIX: Call the correct add/update method ***
+    // Your `updateNote` handles both cases perfectly.
     ref.read(noteProvider.notifier).updateNote(updatedNote);
+
+    // Once the note is saved for the first time, it's no longer "new".
+    if (_isNewNote) {
+      _isNewNote = false;
+    }
   }
 
   @override
@@ -105,7 +123,6 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
           ],
         ),
       ),
-      // This line will now work correctly
       bottomNavigationBar: NoteBottomBar(note: _currentNote),
     );
   }

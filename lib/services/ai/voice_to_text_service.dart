@@ -1,3 +1,4 @@
+//  lib/services/ai/voice_to_text_service.dart
 class VoiceToTextService {
   /// Starts real-time voice-to-text transcription.
   /// This is a placeholder for a real speech recognition implementation.
