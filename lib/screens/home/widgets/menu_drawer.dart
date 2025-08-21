@@ -1,9 +1,9 @@
 // lib/screens/home/widgets/menu_drawer.dart
 import 'package:flutter/material.dart';
 import 'package:smart_notes/screens/about/about_screen.dart';
-import 'package:smart_notes/screens/archive/archive_screen.dart'; // Import archive screen
-import 'package:smart_notes/screens/deleted/deleted_screen.dart'; // Import deleted screen
-import 'package:smart_notes/screens/reminders/reminder_screen.dart'; // Import reminder screen
+import 'package:smart_notes/screens/archive/archive_screen.dart';
+import 'package:smart_notes/screens/deleted/deleted_screen.dart';
+import 'package:smart_notes/screens/reminders/reminder_screen.dart';
 import 'package:smart_notes/screens/settings/settings_screen.dart';
 
 class MenuDrawer extends StatelessWidget {
@@ -11,18 +11,28 @@ class MenuDrawer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get the current theme's color scheme
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Drawer(
+      // The drawer itself will correctly use the theme's surface color.
+      // We don't need to set a color here.
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          const DrawerHeader(
+          DrawerHeader(
             decoration: BoxDecoration(
-              color: Colors.deepPurple,
+              // *** THIS IS THE FIX ***
+              // Use the primary color from the current theme.
+              // This will now update automatically when you change the theme in settings.
+              color: colorScheme.primaryContainer,
             ),
             child: Text(
               'Smart Notes',
               style: TextStyle(
-                color: Colors.white,
+                // Use the color designed to be ON TOP of the primary color.
+                // This ensures text is readable (e.g., white on a dark primary).
+                color: colorScheme.onPrimaryContainer,
                 fontSize: 24,
               ),
             ),

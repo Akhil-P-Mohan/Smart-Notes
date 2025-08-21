@@ -49,6 +49,8 @@ class Note extends HiveObject {
   @HiveField(13)
   DateTime? reminderDate;
 
+  // The colorValue field has been removed.
+
   Note({
     required this.id,
     this.title = '',
@@ -64,6 +66,7 @@ class Note extends HiveObject {
     this.isArchived = false,
     this.isDeleted = false,
     this.reminderDate,
+    // The colorValue property has been removed from the constructor.
   });
 
   /// Creates a copy of this Note but with the given fields replaced with new values.
@@ -82,6 +85,7 @@ class Note extends HiveObject {
     bool? isArchived,
     bool? isDeleted,
     DateTime? reminderDate,
+    // The colorValue property has been removed from copyWith.
   }) {
     return Note(
       id: id ?? this.id,

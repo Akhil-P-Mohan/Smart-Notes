@@ -28,17 +28,20 @@ class FloatingActionButtons extends ConsumerWidget {
     if (extractedText.isNotEmpty &&
         !extractedText.contains('Error') &&
         context.mounted) {
+      // Create the new note object
       final newNote = Note(
         id: const Uuid().v4(),
-        title: extractedText.split('\n').first,
+        // *** THIS IS THE FIX: The title is now set to an empty string ***
+        title: '',
         content: extractedText,
         dateCreated: DateTime.now(),
         dateModified: DateTime.now(),
       );
 
-      // Use the correct 'updateNote' method which handles adding new notes
+      // Save the new note to the Hive database using your provider
       ref.read(noteProvider.notifier).updateNote(newNote);
 
+      // Now navigate to the NoteScreen with the newly saved note
       Navigator.push(
         context,
         MaterialPageRoute(
@@ -132,7 +135,6 @@ class FloatingActionButtons extends ConsumerWidget {
 }
 
 /// A dialog widget to let the user choose the OCR language.
-// *** THIS IS THE FIX: Providing the full implementation of the class ***
 class OcrLanguageDialog extends StatelessWidget {
   const OcrLanguageDialog({super.key});
 

@@ -23,27 +23,20 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
 
-  /// Helper method to build the correct AppBar based on the selection mode.
   PreferredSizeWidget _buildAppBar(
     BuildContext context,
     bool isMultiSelectMode,
     Set<String> selectedIds,
   ) {
     if (isMultiSelectMode) {
-      // --- NEW LOGIC ---
-      // Get all notes to check the status of the selected ones.
       final allNotes = ref.read(noteProvider);
       final selectedNotes =
           allNotes.where((note) => selectedIds.contains(note.id)).toList();
 
-      // Determine the action: if ANY selected note is unpinned, the action is to PIN.
-      // Otherwise, if ALL are already pinned, the action is to UNPIN.
       final bool shouldPin = selectedNotes.any((note) => !note.isPinned);
-      // --- END NEW LOGIC ---
 
       return SelectedNotesBar(
         selectedCount: selectedIds.length,
-        // --- NEW ---
         isPinningAction: shouldPin,
         onClose: () => ref.read(selectionProvider.notifier).clear(),
         onDelete: () {
@@ -51,8 +44,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ref.read(selectionProvider.notifier).clear();
         },
         onPinToggle: () {
-          // --- MODIFIED ---
-          // Use the 'shouldPin' boolean we just calculated to perform the correct action.
           ref
               .read(noteProvider.notifier)
               .togglePinMultipleNotes(selectedIds, shouldPin);
@@ -64,9 +55,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               .toggleArchiveMultipleNotes(selectedIds, true);
           ref.read(selectionProvider.notifier).clear();
         },
-        onThemeChange: () {
-          // TODO: Implement theme change for multiple notes
-        },
+        // *** FIX 1: The 'onThemeChange' callback is removed as it's no longer needed. ***
       );
     } else {
       return CustomAppBar(
@@ -77,7 +66,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch all necessary providers
     final allNotes = ref.watch(noteProvider);
     final selectedIds = ref.watch(selectionProvider);
     final isMultiSelectMode = selectedIds.isNotEmpty;
@@ -85,12 +73,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     final sortOrder = ref.watch(sortOrderProvider);
     final searchQuery = ref.watch(searchQueryProvider);
 
-    // --- FILTERING LOGIC ---
-    // 1. Get only active notes (not archived, not deleted)
     final activeNotes =
         allNotes.where((note) => !note.isArchived && !note.isDeleted).toList();
 
-    // 2. Filter by search query
     final filteredNotes = searchQuery.isEmpty
         ? activeNotes
         : activeNotes.where((note) {
@@ -101,7 +86,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             return titleMatch || contentMatch;
           }).toList();
 
-    // --- SORTING LOGIC ---
     final sortedNotes = List<Note>.from(filteredNotes);
     sortedNotes.sort((a, b) {
       final int comparison;
@@ -110,9 +94,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           comparison = a.dateCreated.compareTo(b.dateCreated);
           break;
         case SortBy.dateModified:
-        default:
           comparison = a.dateModified.compareTo(b.dateModified);
           break;
+        // *** FIX 2: The 'default' case is removed as it's unreachable. ***
       }
       return sortOrder == SortOrder.descending ? -comparison : comparison;
     });
@@ -129,19 +113,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         child: CustomScrollView(
           slivers: [
             const SliverToBoxAdapter(child: SizedBox(height: 12)),
-            // Show a message if there are no notes at all
             if (activeNotes.isEmpty)
               const SliverFillRemaining(
                 child: Center(child: Text("Create your first note!")),
               ),
-            // Show a message if search yields no results
             if (filteredNotes.isEmpty &&
                 searchQuery.isNotEmpty &&
                 activeNotes.isNotEmpty)
               const SliverFillRemaining(
                 child: Center(child: Text("No notes found.")),
               ),
-
             if (pinnedNotes.isNotEmpty) ...[
               const SliverToBoxAdapter(
                 child: Padding(

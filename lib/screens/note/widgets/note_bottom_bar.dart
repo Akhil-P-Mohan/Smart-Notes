@@ -1,15 +1,17 @@
 // lib/screens/note/widgets/note_bottom_bar.dart
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_notes/models/note_model.dart';
+import 'package:smart_notes/providers/note_provider.dart';
+import 'package:smart_notes/widgets/reusable/color_picker_dialog.dart';
 
-class NoteBottomBar extends StatelessWidget {
-  // FIX: Add the note parameter to the constructor
+class NoteBottomBar extends ConsumerWidget {
   final Note note;
   const NoteBottomBar({super.key, required this.note});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     return BottomAppBar(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -17,44 +19,27 @@ class NoteBottomBar extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.add_box_outlined),
             tooltip: 'Add...',
-            onPressed: () {
-              // TODO: Add checklist, recording, image, etc.
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.color_lens_outlined),
-            tooltip: 'Theme',
-            onPressed: () {
-              // TODO: Show theme/color picker
-            },
+            onPressed: () {/* TODO */},
           ),
           IconButton(
             icon: const Icon(Icons.text_fields),
             tooltip: 'Text Styles',
-            onPressed: () {
-              // TODO: Show text style options
-            },
+            onPressed: () {/* TODO */},
           ),
           IconButton(
             icon: const Icon(Icons.undo),
             tooltip: 'Undo',
-            onPressed: () {
-              // TODO: Implement undo
-            },
+            onPressed: () {/* TODO */},
           ),
           IconButton(
             icon: const Icon(Icons.redo),
             tooltip: 'Redo',
-            onPressed: () {
-              // TODO: Implement redo
-            },
+            onPressed: () {/* TODO */},
           ),
           IconButton(
             icon: const Icon(Icons.more_vert),
             tooltip: 'More Options',
-            onPressed: () {
-              // TODO: Show more options (delete, copy, share)
-            },
+            onPressed: () {/* TODO */},
           ),
         ],
       ),

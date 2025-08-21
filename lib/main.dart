@@ -1,39 +1,63 @@
 // lib/main.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:smart_notes/providers/theme_provider.dart';
+import 'package:smart_notes/models/note_model.dart';
+import 'package:smart_notes/providers/theme_provider.dart'; // Your final theme provider
 import 'package:smart_notes/screens/home/home_screen.dart';
-import 'package:smart_notes/utils/app_theme.dart';
 
-void main() async {
-  // Ensure Flutter bindings are initialized
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  // Initialize Hive for local storage
   await Hive.initFlutter();
+  Hive.registerAdapter(NoteAdapter());
+  await Hive.openBox<Note>('notes');
+
   runApp(
-    // Wrap the app with ProviderScope for Riverpod state management
     const ProviderScope(
-      child: SmartNotesApp(),
+      child: MyApp(),
     ),
   );
 }
 
-class SmartNotesApp extends ConsumerWidget {
-  const SmartNotesApp({super.key});
+// MyApp is a ConsumerWidget to access providers.
+class MyApp extends ConsumerWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Watch the theme provider to get the current theme mode
-    final themeMode = ref.watch(themeProvider);
+    // --- THIS IS THE FIX ---
+    // 1. Watch the provider to get the entire AppTheme object.
+    final AppTheme appTheme = ref.watch(themeProvider);
 
     return MaterialApp(
       title: 'Smart Notes',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: themeMode,
-      home: const HomeScreen(),
       debugShowCheckedModeBanner: false,
+
+      // 2. Use the .mode property from our AppTheme object.
+      themeMode: appTheme.mode,
+
+      // --- LIGHT THEME ---
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          // 3. Use the .color property from our AppTheme object.
+          seedColor: appTheme.color,
+          brightness: Brightness.light,
+        ),
+        useMaterial3: true,
+      ),
+
+      // --- DARK THEME ---
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          // 4. And use the .color property here too.
+          seedColor: appTheme.color,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+
+      home: const HomeScreen(),
     );
   }
 }

@@ -49,8 +49,9 @@
         <!-- This tells ML Kit to bundle the OCR models for these scripts with your app -->
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
-            android:value="ocr_devanagari,ocr_chinese,ocr_japanese,ocr_korean" />
+            android:value="ocr_devanagiri,ocr_chinese,ocr_japanese,ocr_korean" />
         <!-- ======================================================== -->
 
     </application>
+    
 </manifest>

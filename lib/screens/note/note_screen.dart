@@ -1,6 +1,4 @@
 // lib/screens/note/note_screen.dart
-
-// *** FIX: Corrected the import path ***
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -53,35 +51,29 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
     });
   }
 
+  // This save logic is robust and correct for text content.
   void _saveNote() {
+    // Before saving, we need to update the _currentNote object with the
+    // latest text from the controllers.
     final title = _titleController.text;
     final content = _contentController.text;
 
-    // If both title and content are empty...
-    if (title.isEmpty && content.isEmpty) {
-      // and it's an existing note, delete it.
-      if (!_isNewNote) {
-        // *** FIX: Call the correct delete method ***
-        ref.read(noteProvider.notifier).permanentlyDeleteNote(_currentNote.id);
-      }
-      return; // Don't save empty notes.
-    }
-
-    final updatedNote = _currentNote.copyWith(
+    // We update the local _currentNote object first.
+    _currentNote = _currentNote.copyWith(
       title: title,
       content: content,
       dateModified: DateTime.now(),
     );
 
-    setState(() {
-      _currentNote = updatedNote;
-    });
+    if (title.isEmpty && content.isEmpty) {
+      if (!_isNewNote) {
+        ref.read(noteProvider.notifier).permanentlyDeleteNote(_currentNote.id);
+      }
+      return;
+    }
 
-    // *** FIX: Call the correct add/update method ***
-    // Your `updateNote` handles both cases perfectly.
-    ref.read(noteProvider.notifier).updateNote(updatedNote);
+    ref.read(noteProvider.notifier).updateNote(_currentNote);
 
-    // Once the note is saved for the first time, it's no longer "new".
     if (_isNewNote) {
       _isNewNote = false;
     }
@@ -98,6 +90,14 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch the provider to get the latest note data (e.g., if pinned from app bar)
+    final notes = ref.watch(noteProvider);
+    _currentNote = notes.firstWhere((n) => n.id == _currentNote.id,
+        orElse: () => _currentNote);
+
+    // *** THIS IS THE REVERT ***
+    // We are no longer calculating or applying any custom colors.
+    // The Scaffold and TextFields will use the app's default theme colors.
     return Scaffold(
       appBar: NoteAppBar(note: _currentNote),
       body: Padding(
@@ -107,6 +107,7 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
             TextField(
               controller: _titleController,
               decoration: const InputDecoration.collapsed(hintText: 'Title'),
+              // Style no longer has a dynamic color
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
@@ -117,6 +118,7 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
                     hintText: 'Start typing...'),
                 maxLines: null,
                 expands: true,
+                // Style no longer has a dynamic color
                 style: const TextStyle(fontSize: 18),
               ),
             ),

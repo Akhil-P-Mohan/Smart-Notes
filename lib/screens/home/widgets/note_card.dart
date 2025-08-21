@@ -23,10 +23,8 @@ class NoteCard extends ConsumerWidget {
     return GestureDetector(
       onTap: () {
         if (isMultiSelectMode) {
-          // If in multi-select mode, a tap toggles selection
           selectionNotifier.toggle(note.id);
         } else {
-          // Otherwise, navigate to the note screen
           Navigator.push(
             context,
             MaterialPageRoute(builder: (context) => NoteScreen(note: note)),
@@ -34,12 +32,15 @@ class NoteCard extends ConsumerWidget {
         }
       },
       onLongPress: () {
-        // A long press always toggles selection and enters multi-select mode
         selectionNotifier.toggle(note.id);
       },
       child: Card(
-        // Change color and add an icon if the card is selected
-        color: isSelected ? Colors.deepPurple.withOpacity(0.3) : null,
+        // *** THIS IS THE FINAL FIX ***
+        // The color logic is now simple and does not reference `note.color`.
+        // It only checks if the card is selected.
+        color: isSelected
+            ? Theme.of(context).colorScheme.primary.withOpacity(0.35)
+            : null, // `null` uses the default theme card color.
         child: Stack(
           children: [
             Padding(
@@ -50,6 +51,7 @@ class NoteCard extends ConsumerWidget {
                   if (note.title.isNotEmpty)
                     Text(
                       note.title,
+                      // The style is simple and does not have a dynamic color.
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 16),
                       maxLines: 2,

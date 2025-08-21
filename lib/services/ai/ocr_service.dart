@@ -1,61 +1,42 @@
 // lib/services/ai/ocr_service.dart
 
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:smart_notes/widgets/cropper/image_cropper_screen.dart'; // Import the new screen
-import 'package:path_provider/path_provider.dart'; // Add this import
-import 'package:uuid/uuid.dart'; // Add this import
+import 'package:image_cropper/image_cropper.dart';
 
 class OcrService {
   final ImagePicker _picker = ImagePicker();
 
-  /// Processes an image for OCR using a specified language.
-  /// NOTE: This now requires the BuildContext to navigate to the cropper screen.
   Future<String> processImageWithLanguage(
       BuildContext context, String language) async {
-    // 1. Capture an image
-    final XFile? imageFile =
-        await _picker.pickImage(source: ImageSource.camera);
+    final ImageSource? source = await _showImageSourceDialog(context);
+    if (source == null || !context.mounted) return '';
+
+    final XFile? imageFile = await _picker.pickImage(source: source);
     if (imageFile == null) return '';
 
-    final File rawImageFile = File(imageFile.path);
-
-    // 2. Navigate to the cropper screen and wait for the result (Uint8List)
-    final Uint8List? croppedBytes = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ImageCropperScreen(imageFile: rawImageFile),
-      ),
+    final CroppedFile? croppedFile = await ImageCropper().cropImage(
+      sourcePath: imageFile.path,
+      uiSettings: [
+        AndroidUiSettings(
+            toolbarTitle: 'Crop to select text',
+            toolbarColor: Colors.deepPurple,
+            toolbarWidgetColor: Colors.white,
+            initAspectRatio: CropAspectRatioPreset.original,
+            lockAspectRatio: false),
+      ],
     );
 
-    if (croppedBytes == null || !context.mounted) return '';
+    if (croppedFile == null) return '';
 
-    // Save bytes to a temporary file for more reliable processing
     try {
-      // 3. Get the temporary directory
-      final tempDir = await getTemporaryDirectory();
-      // 4. Create a unique path for the temporary file
-      final tempFilePath = '${tempDir.path}/${const Uuid().v4()}.jpg';
-      final tempFile = File(tempFilePath);
-      // 5. Write the cropped image bytes to the file
-      await tempFile.writeAsBytes(croppedBytes);
-
       final script = _getScriptForLanguage(language);
       final textRecognizer = TextRecognizer(script: script);
-
-      // 6. Use the much more reliable `InputImage.fromFilePath` method
-      final inputImage = InputImage.fromFilePath(tempFile.path);
-
+      final inputImage = InputImage.fromFilePath(croppedFile.path);
       final RecognizedText recognizedText =
           await textRecognizer.processImage(inputImage);
       textRecognizer.close();
-
-      // 7. Clean up the temporary file
-      await tempFile.delete();
-
       return recognizedText.text;
     } catch (e) {
       print("Error during ML Kit OCR processing: $e");
@@ -63,13 +44,33 @@ class OcrService {
     }
   }
 
-  /// Maps a language code to a supported ML Kit TextRecognitionScript.
+  Future<ImageSource?> _showImageSourceDialog(BuildContext context) async {
+    return showDialog<ImageSource>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Image Source'),
+        actions: [
+          TextButton(
+            child: const Text('Camera'),
+            // *** FIX: Corrected "Image - Source" to "ImageSource" ***
+            onPressed: () => Navigator.pop(context, ImageSource.camera),
+          ),
+          TextButton(
+            child: const Text('Gallery'),
+            // *** FIX: Corrected "Image - Source" to "ImageSource" ***
+            onPressed: () => Navigator.pop(context, ImageSource.gallery),
+          ),
+        ],
+      ),
+    );
+  }
+
   TextRecognitionScript _getScriptForLanguage(String languageCode) {
     switch (languageCode.toLowerCase()) {
       case 'eng':
         return TextRecognitionScript.latin;
       case 'hin':
-        return TextRecognitionScript.devanagiri; // Corrected spelling
+        return TextRecognitionScript.devanagiri;
       case 'chi':
         return TextRecognitionScript.chinese;
       case 'jpn':
