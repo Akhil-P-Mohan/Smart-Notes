@@ -55,7 +55,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               .toggleArchiveMultipleNotes(selectedIds, true);
           ref.read(selectionProvider.notifier).clear();
         },
-        // *** FIX 1: The 'onThemeChange' callback is removed as it's no longer needed. ***
       );
     } else {
       return CustomAppBar(
@@ -88,15 +87,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     final sortedNotes = List<Note>.from(filteredNotes);
     sortedNotes.sort((a, b) {
-      final int comparison;
+      int comparison;
       switch (sortBy) {
         case SortBy.dateCreated:
           comparison = a.dateCreated.compareTo(b.dateCreated);
           break;
         case SortBy.dateModified:
+        default:
           comparison = a.dateModified.compareTo(b.dateModified);
           break;
-        // *** FIX 2: The 'default' case is removed as it's unreachable. ***
       }
       return sortOrder == SortOrder.descending ? -comparison : comparison;
     });
@@ -108,77 +107,83 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       key: _scaffoldKey,
       appBar: _buildAppBar(context, isMultiSelectMode, selectedIds),
       drawer: const MenuDrawer(),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12.0),
-        child: CustomScrollView(
-          slivers: [
-            const SliverToBoxAdapter(child: SizedBox(height: 12)),
-            if (activeNotes.isEmpty)
-              const SliverFillRemaining(
-                child: Center(child: Text("Create your first note!")),
-              ),
-            if (filteredNotes.isEmpty &&
-                searchQuery.isNotEmpty &&
-                activeNotes.isNotEmpty)
-              const SliverFillRemaining(
-                child: Center(child: Text("No notes found.")),
-              ),
-            if (pinnedNotes.isNotEmpty) ...[
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: 8.0),
-                  child: Text('PINNED',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: Colors.grey)),
-                ),
-              ),
-              SliverMasonryGrid.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childCount: pinnedNotes.length,
-                itemBuilder: (context, index) {
-                  final note = pinnedNotes[index];
-                  return NoteCard(
-                    note: note,
-                    isSelected: selectedIds.contains(note.id),
-                  );
-                },
-              ),
-              const SliverToBoxAdapter(child: SizedBox(height: 20)),
-            ],
-            if (otherNotes.isNotEmpty) ...[
-              const SliverToBoxAdapter(
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: 8.0),
-                  child: Text('OTHERS',
-                      style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: Colors.grey)),
-                ),
-              ),
-              SliverMasonryGrid.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 8,
-                crossAxisSpacing: 8,
-                childCount: otherNotes.length,
-                itemBuilder: (context, index) {
-                  final note = otherNotes[index];
-                  return NoteCard(
-                    note: note,
-                    isSelected: selectedIds.contains(note.id),
-                  );
-                },
-              ),
-            ],
-          ],
-        ),
+      body: Stack(
+        children: [
+          // LAYER 1 (BOTTOM): Your scrollable notes list
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: CustomScrollView(
+              slivers: [
+                const SliverToBoxAdapter(child: SizedBox(height: 12)),
+                if (activeNotes.isEmpty)
+                  const SliverFillRemaining(
+                    child: Center(child: Text("Create your first note!")),
+                  ),
+                if (filteredNotes.isEmpty &&
+                    searchQuery.isNotEmpty &&
+                    activeNotes.isNotEmpty)
+                  const SliverFillRemaining(
+                    child: Center(child: Text("No notes found.")),
+                  ),
+                if (pinnedNotes.isNotEmpty) ...[
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: 8.0),
+                      child: Text('PINNED',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: Colors.grey)),
+                    ),
+                  ),
+                  SliverMasonryGrid.count(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childCount: pinnedNotes.length,
+                    itemBuilder: (context, index) {
+                      final note = pinnedNotes[index];
+                      return NoteCard(
+                        note: note,
+                        isSelected: selectedIds.contains(note.id),
+                      );
+                    },
+                  ),
+                  const SliverToBoxAdapter(child: SizedBox(height: 20)),
+                ],
+                if (otherNotes.isNotEmpty) ...[
+                  const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: 8.0),
+                      child: Text('OTHERS',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                              color: Colors.grey)),
+                    ),
+                  ),
+                  SliverMasonryGrid.count(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 8,
+                    crossAxisSpacing: 8,
+                    childCount: otherNotes.length,
+                    itemBuilder: (context, index) {
+                      final note = otherNotes[index];
+                      return NoteCard(
+                        note: note,
+                        isSelected: selectedIds.contains(note.id),
+                      );
+                    },
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // LAYER 2 (TOP): The Floating Action Button system.
+          if (!isMultiSelectMode) const FloatingActionButtons(),
+        ],
       ),
-      floatingActionButton:
-          isMultiSelectMode ? null : const FloatingActionButtons(),
     );
   }
 }

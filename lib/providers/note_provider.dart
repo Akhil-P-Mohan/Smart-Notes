@@ -1,9 +1,10 @@
 // lib/providers/note_provider.dart
 
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:smart_notes/models/checklist_item_model.dart'; // <-- THIS IS THE FIX
 import 'package:smart_notes/models/note_model.dart';
 import 'package:smart_notes/services/database/local_storage_service.dart';
-import 'package:flutter/material.dart';
 
 // Provider to manage the list of notes
 final noteProvider = StateNotifierProvider<NoteNotifier, List<Note>>((ref) {
@@ -41,8 +42,55 @@ class NoteNotifier extends StateNotifier<List<Note>> {
     _storageService.saveNotes(state);
   }
 
-  // --- ALL YOUR OTHER NOTE MANAGEMENT METHODS ---
-  // These are all correct and do not need to be changed.
+  // --- NEW METHODS FOR CHECKLISTS ---
+
+  void addChecklistItem(String noteId, {String text = ''}) {
+    state = [
+      for (final note in state)
+        if (note.id == noteId)
+          note.copyWith(
+            checklist: [...note.checklist, ChecklistItem(text: text)],
+            dateModified: DateTime.now(),
+          )
+        else
+          note
+    ];
+    _storageService.saveNotes(state);
+  }
+
+  void updateChecklistItem(
+      String noteId, int itemIndex, ChecklistItem newItem) {
+    state = [
+      for (final note in state)
+        if (note.id == noteId)
+          note.copyWith(
+            checklist: List<ChecklistItem>.from(note.checklist)
+              ..[itemIndex] = newItem,
+            dateModified: DateTime.now(),
+          )
+        else
+          note
+    ];
+    _storageService.saveNotes(state);
+  }
+
+  void deleteChecklistItem(String noteId, int itemIndex) {
+    state = [
+      for (final note in state)
+        if (note.id == noteId)
+          note.copyWith(
+            checklist: List<ChecklistItem>.from(note.checklist)
+              ..removeAt(itemIndex),
+            dateModified: DateTime.now(),
+          )
+        else
+          note
+    ];
+    _storageService.saveNotes(state);
+  }
+
+  // --- ALL YOUR OTHER EXISTING METHODS ---
+  // (softDeleteNote, toggleArchiveStatus, setReminder, etc. all remain the same)
 
   void setReminderForMultipleNotes(Set<String> noteIds, DateTime? reminder) {
     state = [
@@ -64,7 +112,7 @@ class NoteNotifier extends StateNotifier<List<Note>> {
         if (note.id == noteId)
           note.copyWith(
             dateModified: DateTime.now(),
-            isPinned: false,
+            isPinned: false, // Unpin when archiving
             isArchived: isArchived,
           )
         else
@@ -166,6 +214,4 @@ class NoteNotifier extends StateNotifier<List<Note>> {
     ];
     _storageService.saveNotes(state);
   }
-
-  // The updateNoteColor and updateMultipleNotesColor methods have been removed.
 }

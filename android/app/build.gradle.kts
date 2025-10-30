@@ -26,7 +26,7 @@ android {
         applicationId = "com.example.smart_notes"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = 21 // Using 21 as a safe minimum
+        minSdk = flutter.minSdkVersion // Using 21 as a safe minimum
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -41,7 +41,7 @@ android {
     }
 }
 
-flutter {
+flutter {      
     source = "../.."
 }
 
