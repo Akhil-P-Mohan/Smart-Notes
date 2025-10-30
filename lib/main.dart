@@ -4,8 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:smart_notes/models/note_model.dart';
-import 'package:smart_notes/providers/theme_provider.dart'; // Your final theme provider
+import 'package:smart_notes/providers/theme_provider.dart';
 import 'package:smart_notes/screens/home/home_screen.dart';
+
+// NEW IMPORTS FOR LOCALE FIX
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:flutter_quill/flutter_quill.dart'; // Just for the delegate
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,21 +30,26 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // --- THIS IS THE FIX ---
-    // 1. Watch the provider to get the entire AppTheme object.
     final AppTheme appTheme = ref.watch(themeProvider);
 
     return MaterialApp(
       title: 'Smart Notes',
       debugShowCheckedModeBanner: false,
-
-      // 2. Use the .mode property from our AppTheme object.
       themeMode: appTheme.mode,
+
+      // FIX 1: ADD LOCALIZATION DELEGATES FOR QUILL
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        FlutterQuillLocalizations.delegate, // ADDED: Quill's delegate
+      ],
+      supportedLocales: const [
+        Locale('en', ''),
+      ],
 
       // --- LIGHT THEME ---
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          // 3. Use the .color property from our AppTheme object.
           seedColor: appTheme.color,
           brightness: Brightness.light,
         ),
@@ -50,7 +59,6 @@ class MyApp extends ConsumerWidget {
       // --- DARK THEME ---
       darkTheme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
-          // 4. And use the .color property here too.
           seedColor: appTheme.color,
           brightness: Brightness.dark,
         ),

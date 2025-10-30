@@ -24,11 +24,14 @@ dependencies:
   google_mlkit_text_recognition: ^0.11.0
   uuid: ^4.3.3
   permission_handler: ^11.0.1
-  intl: ^0.18.1
+  intl: ^0.20.2
   shared_preferences: ^2.5.3 # Or the latest version
   just_audio: ^0.9.36 # Or the latest version
   record: ^6.1.0 
   image_cropper: ^9.1.0
+  share_plus: ^7.0.2
+  flutter_quill: ^11.5.0
+  flutter_quill_extensions: ^11.0.0
 
 
 

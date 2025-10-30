@@ -3,6 +3,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_notes/providers/note_provider.dart';
+import 'dart:convert'; // Added for JSON decoding
+import 'package:flutter_quill/flutter_quill.dart'; // Added for Document class
+
+// Utility to get plain text from Quill Delta JSON
+String getPlainTextFromDelta(String deltaJson) {
+  try {
+    if (deltaJson.isEmpty || deltaJson == '[{"insert":"\\n"}]') {
+      return '';
+    }
+    final doc = Document.fromJson(jsonDecode(deltaJson));
+    return doc.toPlainText().trim();
+  } catch (e) {
+    return deltaJson;
+  }
+}
 
 class ArchiveScreen extends ConsumerWidget {
   const ArchiveScreen({super.key});
@@ -34,7 +49,7 @@ class ArchiveScreen extends ConsumerWidget {
                     title:
                         Text(note.title.isEmpty ? "Untitled Note" : note.title),
                     subtitle: Text(
-                      note.content,
+                      getPlainTextFromDelta(note.content), // FIX: Use utility
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),

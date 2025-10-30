@@ -1,5 +1,7 @@
 // lib/screens/note/note_screen.dart
+
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +13,15 @@ import 'package:smart_notes/screens/note/widgets/note_app_bar.dart';
 import 'package:smart_notes/screens/note/widgets/note_bottom_bar.dart';
 import 'package:uuid/uuid.dart';
 
+// FLUTTER QUILL IMPORTS (Final Fix: No alias, relying on dart_quill_delta for Delta)
+import 'package:flutter_quill/flutter_quill.dart';
+import 'package:dart_quill_delta/dart_quill_delta.dart'; // Relies on this for Delta
+import 'package:flutter_quill_extensions/flutter_quill_extensions.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:record/record.dart';
+import 'package:smart_notes/services/ai/ocr_service.dart';
+
 class NoteScreen extends ConsumerStatefulWidget {
   final Note? note;
   const NoteScreen({super.key, this.note});
@@ -21,33 +32,52 @@ class NoteScreen extends ConsumerStatefulWidget {
 
 class _NoteScreenState extends ConsumerState<NoteScreen> {
   late TextEditingController _titleController;
-  late TextEditingController _contentController;
+  late QuillController _quillController;
   late List<TextEditingController> _checklistControllers;
+  late FocusNode _quillFocusNode;
+
   Timer? _debounce;
   late Note _currentNote;
   bool _isNewNote = false;
+  bool _showTextStyles = false;
 
   @override
   void initState() {
     super.initState();
+    _quillFocusNode = FocusNode();
     _isNewNote = widget.note == null;
     _currentNote = widget.note ??
         Note(
           id: const Uuid().v4(),
           title: '',
-          content: '',
+          content: '[{"insert":"\\n"}]',
           dateCreated: DateTime.now(),
           dateModified: DateTime.now(),
         );
 
     _titleController = TextEditingController(text: _currentNote.title);
-    _contentController = TextEditingController(text: _currentNote.content);
     _checklistControllers = _currentNote.checklist
         .map((item) => TextEditingController(text: item.text))
         .toList();
 
+    // Initialize QuillController
+    try {
+      final doc = Document.fromJson(jsonDecode(_currentNote.content));
+      _quillController = QuillController(
+        document: doc,
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+    } catch (e) {
+      _quillController = QuillController(
+        // Delta is resolved via dart_quill_delta
+        document: Document.fromDelta(Delta()..insert(_currentNote.content)),
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+    }
+
+    // Add Listeners
     _titleController.addListener(_onTextChanged);
-    _contentController.addListener(_onTextChanged);
+    _quillController.addListener(_onQuillContentChanged);
     for (var controller in _checklistControllers) {
       controller.addListener(_onTextChanged);
     }
@@ -58,28 +88,34 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
     _debounce = Timer(const Duration(milliseconds: 800), _saveNote);
   }
 
+  void _onQuillContentChanged() {
+    _onTextChanged();
+  }
+
   void _saveNote() {
-    // Before saving, ensure the local _currentNote has the latest text
-    // from controllers to avoid race conditions.
+    final quillContent =
+        jsonEncode(_quillController.document.toDelta().toJson());
+
     final updatedChecklist = List.generate(
       _checklistControllers.length,
       (index) => ChecklistItem(
         text: _checklistControllers[index].text,
-        // Use the correct property name from your model
         isChecked: _currentNote.checklist[index].isChecked,
       ),
     );
 
     _currentNote = _currentNote.copyWith(
       title: _titleController.text,
-      content: _contentController.text,
+      content: quillContent,
       checklist: updatedChecklist,
       dateModified: DateTime.now(),
     );
 
-    // Don't save empty notes unless they are special types (image/audio)
+    final isQuillEmpty =
+        quillContent == '[{"insert":"\\n"}]' || quillContent == '[]';
+
     bool isEffectivelyEmpty = _titleController.text.isEmpty &&
-        _contentController.text.isEmpty &&
+        isQuillEmpty &&
         _currentNote.checklist.every((item) => item.text.isEmpty) &&
         _currentNote.imageUrl == null &&
         _currentNote.audioPath == null;
@@ -103,23 +139,124 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
     _saveNote();
     _debounce?.cancel();
     _titleController.dispose();
-    _contentController.dispose();
+    _quillController.dispose();
+    _quillFocusNode.dispose();
     for (var controller in _checklistControllers) {
       controller.dispose();
     }
     super.dispose();
   }
 
+  // --- MEDIA HANDLERS (UNCHANGED) ---
+  Future<void> _handleOCR() async {
+    final ocrService = OcrService();
+    final extractedText =
+        await ocrService.processImageWithLanguage(context, 'eng');
+    if (extractedText.isNotEmpty &&
+        !extractedText.contains('Error') &&
+        mounted) {
+      final cursorPosition = _quillController.selection.baseOffset;
+      _quillController.document.insert(cursorPosition, extractedText);
+      _quillController.updateSelection(
+        TextSelection.collapsed(offset: cursorPosition + extractedText.length),
+        ChangeSource.local,
+      );
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Text extracted and added to note.'),
+        duration: Duration(seconds: 2),
+      ));
+    }
+  }
+
+  Future<void> _handleImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? imageFile =
+        await picker.pickImage(source: ImageSource.gallery);
+    if (imageFile != null) {
+      _quillController.document.insert(
+        _quillController.selection.baseOffset,
+        BlockEmbed.image(imageFile.path),
+      );
+      _quillController.updateSelection(
+        TextSelection.collapsed(
+            offset: _quillController.selection.baseOffset + 1),
+        ChangeSource.local,
+      );
+    }
+  }
+
+  Future<void> _handleAudio() async {
+    final AudioRecorder audioRecorder = AudioRecorder();
+    if (_currentNote.audioPath != null ||
+        _currentNote.checklist.isNotEmpty ||
+        _currentNote.imageUrl != null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:
+            Text('Only one media/checklist type allowed per note (Audio).'),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
+    if (await audioRecorder.hasPermission()) {
+      final directory = await getApplicationDocumentsDirectory();
+      final filePath = '${directory.path}/${const Uuid().v4()}.m4a';
+      await audioRecorder.start(const RecordConfig(), path: filePath);
+
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Recording... Tap STOP to finish.'),
+        duration: const Duration(minutes: 5),
+        action: SnackBarAction(
+            label: 'STOP',
+            onPressed: () async {
+              final path = await audioRecorder.stop();
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              if (path != null) {
+                final updatedNote = _currentNote.copyWith(
+                  audioPath: path,
+                  dateModified: DateTime.now(),
+                );
+                setState(() => _currentNote = updatedNote);
+                ref.read(noteProvider.notifier).updateNote(updatedNote);
+              }
+            }),
+      ));
+    }
+  }
+
+  void _handleChecklist() {
+    if (_currentNote.audioPath != null ||
+        _currentNote.checklist.isNotEmpty ||
+        _currentNote.imageUrl != null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content:
+            Text('Only one media/checklist type allowed per note (Checklist).'),
+        duration: Duration(seconds: 2),
+      ));
+      return;
+    }
+    final updatedNote = _currentNote.copyWith(
+      checklist: [ChecklistItem(text: '', isChecked: false)],
+      dateModified: DateTime.now(),
+    );
+
+    setState(() {
+      _currentNote = updatedNote;
+      _checklistControllers = updatedNote.checklist
+          .map((item) => TextEditingController(text: item.text))
+          .toList();
+    });
+    ref.read(noteProvider.notifier).updateNote(updatedNote);
+  }
+  // --- END MEDIA HANDLERS ---
+
   @override
   Widget build(BuildContext context) {
-    // Watch for external updates to the note (like color changes)
     final notes = ref.watch(noteProvider);
     _currentNote = notes.firstWhere((n) => n.id == _currentNote.id,
         orElse: () => _currentNote);
 
     return Scaffold(
       appBar: NoteAppBar(note: _currentNote),
-      // Use a GestureDetector to unfocus text fields when tapping the background
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: SingleChildScrollView(
@@ -134,34 +271,75 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
                     const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-
-              // --- DYNAMIC CONTENT WIDGETS ---
               if (_currentNote.imageUrl != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: Image.file(File(_currentNote.imageUrl!)),
                 ),
-
               if (_currentNote.audioPath != null)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 16.0),
                   child: _AudioPlayerWidget(filePath: _currentNote.audioPath!),
                 ),
-
               if (_currentNote.checklist.isNotEmpty) _buildChecklist(),
 
-              // Always show the main content TextField
-              TextField(
-                controller: _contentController,
-                decoration: const InputDecoration.collapsed(
-                    hintText: 'Start typing...'),
-                maxLines: null, // This allows the field to grow
+              // FIX: Switch to QuillEditor and add placeholder
+              QuillEditor(
+                controller: _quillController,
+                focusNode: _quillFocusNode,
+                scrollController: ScrollController(),
+                config: QuillEditorConfig(
+                  placeholder: 'Start typing your notes...',
+                  padding: EdgeInsets.zero,
+                  // REMOVED: readOnly: false, <- This is the source of the conflict.
+                  embedBuilders: FlutterQuillEmbeds.editorBuilders(),
+                ),
               ),
             ],
           ),
         ),
       ),
-      bottomNavigationBar: NoteBottomBar(note: _currentNote),
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (_showTextStyles)
+            _QuillTextStyleBar(
+              controller: _quillController,
+              onClose: () => setState(() => _showTextStyles = false),
+            ),
+          ListenableBuilder(
+            listenable: _quillController,
+            builder: (context, child) {
+              return NoteBottomBar(
+                note: _currentNote,
+                onAddTap: () => FocusScope.of(context).unfocus(),
+                onStyleTap: () =>
+                    setState(() => _showTextStyles = !_showTextStyles),
+                onUndoTap: _quillController.undo,
+                onRedoTap: _quillController.redo,
+                canUndo: _quillController.hasUndo,
+                canRedo: _quillController.hasRedo,
+                onMediaSelect: ({required String type}) async {
+                  switch (type) {
+                    case 'OCR':
+                      await _handleOCR();
+                      break;
+                    case 'Image':
+                      await _handleImage();
+                      break;
+                    case 'Audio':
+                      await _handleAudio();
+                      break;
+                    case 'List':
+                      _handleChecklist();
+                      break;
+                  }
+                },
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 
@@ -178,10 +356,8 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
             return Row(
               children: [
                 Checkbox(
-                  value: item.isChecked, // <-- Use the correct property name
+                  value: item.isChecked,
                   onChanged: (bool? value) {
-                    // *** THIS IS THE FIX for the missing `copyWith` method ***
-                    // We manually create a new ChecklistItem object.
                     final newItem = ChecklistItem(
                       text: item.text,
                       isChecked: value ?? false,
@@ -204,7 +380,6 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
                     ref
                         .read(noteProvider.notifier)
                         .deleteChecklistItem(_currentNote.id, index);
-                    // Also remove the controller to keep the lists in sync
                     setState(() {
                       _checklistControllers.removeAt(index).dispose();
                     });
@@ -219,7 +394,6 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
           label: const Text('Add Item'),
           onPressed: () {
             ref.read(noteProvider.notifier).addChecklistItem(_currentNote.id);
-            // Add a new controller for the new item
             setState(() {
               _checklistControllers.add(TextEditingController());
             });
@@ -231,7 +405,76 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
   }
 }
 
-// A dedicated stateful widget to manage the audio player state
+class _QuillTextStyleBar extends StatelessWidget {
+  final QuillController controller;
+  final VoidCallback onClose;
+
+  const _QuillTextStyleBar({required this.controller, required this.onClose});
+
+  @override
+  Widget build(BuildContext context) {
+    // Helper widget to force-center the toolbar button (FIX 1)
+    Widget buildStyledButton(Widget button) {
+      return SizedBox(
+        width: 48, // Standard button width
+        height: 48, // Standard button height
+        child: Center(child: button), // Center the button within the space
+      );
+    }
+
+    return BottomAppBar(
+      height: 48,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // Basic text styles - Wrapped in buildStyledButton
+          buildStyledButton(
+            QuillToolbarToggleStyleButton(
+              controller: controller,
+              attribute: Attribute.bold,
+            ),
+          ),
+          buildStyledButton(
+            QuillToolbarToggleStyleButton(
+              controller: controller,
+              attribute: Attribute.italic,
+            ),
+          ),
+          buildStyledButton(
+            QuillToolbarToggleStyleButton(
+              controller: controller,
+              attribute: Attribute.underline,
+            ),
+          ),
+          buildStyledButton(
+            QuillToolbarToggleStyleButton(
+              controller: controller,
+              attribute: Attribute.strikeThrough,
+            ),
+          ),
+
+          // Highlight/Background Color Option
+          buildStyledButton(
+            QuillToolbarColorButton(
+              controller: controller,
+              isBackground: true,
+            ),
+          ),
+
+          const Spacer(),
+          IconButton(
+            icon: const Icon(Icons.close),
+            tooltip: 'Close',
+            onPressed: onClose,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ... (Audio Player Widget remains the same)
 class _AudioPlayerWidget extends StatefulWidget {
   final String filePath;
   const _AudioPlayerWidget({required this.filePath});

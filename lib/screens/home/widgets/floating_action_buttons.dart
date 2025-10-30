@@ -56,7 +56,7 @@ class _FloatingActionButtonsState extends ConsumerState<FloatingActionButtons>
     // Define the menu items here
     _menuItems = [
       _MenuItem(
-          icon: Icons.camera_alt,
+          icon: Icons.document_scanner_outlined,
           label: 'OCR', // *** CHANGED: 'Text Extraction' to 'OCR' ***
           onPressed: _handleTextExtraction),
       _MenuItem(

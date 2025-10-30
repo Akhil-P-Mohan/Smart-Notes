@@ -1,9 +1,27 @@
-// lib/screens/home/widgets/note_card.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:smart_notes/models/note_model.dart';
 import 'package:smart_notes/providers/selection_provider.dart';
 import 'package:smart_notes/screens/note/note_screen.dart';
+import 'dart:convert';
+import 'package:flutter_quill/flutter_quill.dart'; // Import Quill for Document
+
+// FIX 5: Utility to convert Quill Delta JSON to plain text for the card preview
+String getPlainTextFromDelta(String deltaJson) {
+  try {
+    if (deltaJson.isEmpty || deltaJson == '[{"insert":"\\n"}]') {
+      return '';
+    }
+    // Decode the JSON string into a Quill Document
+    final doc = Document.fromJson(jsonDecode(deltaJson));
+    // Use Quill's internal method to extract plain text
+    return doc.toPlainText().trim();
+  } catch (e) {
+    // Fallback: If it's not valid JSON (e.g., old notes), return the raw string
+    // In a real app, you might want a more sophisticated migration.
+    return deltaJson;
+  }
+}
 
 class NoteCard extends ConsumerWidget {
   final Note note;
@@ -20,6 +38,9 @@ class NoteCard extends ConsumerWidget {
     final selectionNotifier = ref.read(selectionProvider.notifier);
     final isMultiSelectMode = ref.watch(selectionProvider).isNotEmpty;
 
+    // FIX 5: Get the displayable content
+    final displayContent = getPlainTextFromDelta(note.content);
+
     return GestureDetector(
       onTap: () {
         if (isMultiSelectMode) {
@@ -35,12 +56,9 @@ class NoteCard extends ConsumerWidget {
         selectionNotifier.toggle(note.id);
       },
       child: Card(
-        // *** THIS IS THE FINAL FIX ***
-        // The color logic is now simple and does not reference `note.color`.
-        // It only checks if the card is selected.
         color: isSelected
             ? Theme.of(context).colorScheme.primary.withOpacity(0.35)
-            : null, // `null` uses the default theme card color.
+            : null,
         child: Stack(
           children: [
             Padding(
@@ -51,17 +69,17 @@ class NoteCard extends ConsumerWidget {
                   if (note.title.isNotEmpty)
                     Text(
                       note.title,
-                      // The style is simple and does not have a dynamic color.
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 16),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  if (note.title.isNotEmpty && note.content.isNotEmpty)
+                  // Use displayContent here
+                  if (note.title.isNotEmpty && displayContent.isNotEmpty)
                     const SizedBox(height: 8),
-                  if (note.content.isNotEmpty)
+                  if (displayContent.isNotEmpty) // Use displayContent here
                     Text(
-                      note.content,
+                      displayContent, // FIX: DISPLAY PLAIN TEXT
                       maxLines: 8,
                       overflow: TextOverflow.ellipsis,
                     ),
