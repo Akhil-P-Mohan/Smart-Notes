@@ -33,7 +33,9 @@ class _FloatingActionButtonsState extends ConsumerState<FloatingActionButtons>
 
   // List of menu items to be displayed
   late final List<_MenuItem> _menuItems;
-  double _maxLabelWidth = 0.0;
+
+  // NOTE: _maxLabelWidth is no longer needed/used for the new design.
+  // double _maxLabelWidth = 0.0;
 
   @override
   void initState() {
@@ -55,7 +57,7 @@ class _FloatingActionButtonsState extends ConsumerState<FloatingActionButtons>
     _menuItems = [
       _MenuItem(
           icon: Icons.camera_alt,
-          label: 'Text Extraction',
+          label: 'OCR', // *** CHANGED: 'Text Extraction' to 'OCR' ***
           onPressed: _handleTextExtraction),
       _MenuItem(
           icon: Icons.image_outlined,
@@ -69,32 +71,15 @@ class _FloatingActionButtonsState extends ConsumerState<FloatingActionButtons>
           onPressed: _handleChecklistNote),
     ];
 
-    // Pre-calculate the max width of the labels after the first frame
-    WidgetsBinding.instance
-        .addPostFrameCallback((_) => _calculateMaxLabelWidth());
+    // NOTE: _calculateMaxLabelWidth is removed as it's not needed for the new unified box design
+    // WidgetsBinding.instance
+    //     .addPostFrameCallback((_) => _calculateMaxLabelWidth());
   }
 
-  /// Calculates the width of the longest label to ensure all option boxes have the same size.
-  void _calculateMaxLabelWidth() {
-    double maxWidth = 0;
-    for (final item in _menuItems) {
-      final textPainter = TextPainter(
-        text: TextSpan(
-            text: item.label,
-            style: const TextStyle(color: Colors.white, fontSize: 12)),
-        maxLines: 1,
-        textDirection: TextDirection.ltr,
-      )..layout();
-      if (textPainter.width > maxWidth) {
-        maxWidth = textPainter.width;
-      }
-    }
-    if (mounted) {
-      setState(() {
-        _maxLabelWidth = maxWidth;
-      });
-    }
-  }
+  // NOTE: This method is removed as it's not needed for the new unified box design
+  // void _calculateMaxLabelWidth() {
+  //   ...
+  // }
 
   @override
   void dispose() {
@@ -114,7 +99,7 @@ class _FloatingActionButtonsState extends ConsumerState<FloatingActionButtons>
     });
   }
 
-  // --- HANDLER METHODS (ALL FULLY FUNCTIONAL) ---
+  // --- HANDLER METHODS (UNCHANGED) ---
   void _createNewNoteAndNavigate(Note newNote) {
     ref.read(noteProvider.notifier).updateNote(newNote);
     if (mounted) {
@@ -241,10 +226,9 @@ class _FloatingActionButtonsState extends ConsumerState<FloatingActionButtons>
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.end,
                     crossAxisAlignment: CrossAxisAlignment.end,
-                    children: _menuItems
-                        .map((item) =>
-                            _buildOption(item, maxLabelWidth: _maxLabelWidth))
-                        .toList(),
+                    // *** MODIFIED: Removed maxLabelWidth from map/buildOption call ***
+                    children:
+                        _menuItems.map((item) => _buildOption(item)).toList(),
                   ),
                 ),
               ),
@@ -265,7 +249,8 @@ class _FloatingActionButtonsState extends ConsumerState<FloatingActionButtons>
     );
   }
 
-  Widget _buildOption(_MenuItem item, {required double maxLabelWidth}) {
+  // *** MODIFIED: Simplified to use a single container for the unified box design ***
+  Widget _buildOption(_MenuItem item) {
     final colorScheme = Theme.of(context).colorScheme;
 
     return Padding(
@@ -276,46 +261,41 @@ class _FloatingActionButtonsState extends ConsumerState<FloatingActionButtons>
           // Delay to allow the menu to start closing before executing the action
           Future.delayed(const Duration(milliseconds: 150), item.onPressed);
         },
-        // Use a transparent color to ensure the whole row is tappable
         child: Container(
-          color: Colors.transparent,
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              // Label with fixed width
-              Container(
-                width: maxLabelWidth,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(8),
+          // Unified rectangular box
+          decoration: BoxDecoration(
+            color: colorScheme.secondaryContainer
+                .withOpacity(0.9), // Lightly colored background
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: kElevationToShadow[2],
+          ),
+          margin: const EdgeInsets.only(
+              left: 48), // Push it away from the edge slightly
+          child: Padding(
+            // Padding for the content (label + icon) inside the box
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min, // Only occupy necessary width
+              children: [
+                // Icon (moved to the start of the row)
+                Icon(
+                  item.icon,
+                  color: colorScheme.onSecondaryContainer,
+                  size: 24,
                 ),
-                child: Text(
+                const SizedBox(width: 12),
+                // Label
+                Text(
                   item.label,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    decoration:
-                        TextDecoration.none, // Explicitly remove underline
+                  style: TextStyle(
+                    color: colorScheme.onSecondaryContainer,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              // The icon button
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  // FIX: Use the primary color of the FAB
-                  color: colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: kElevationToShadow[2],
-                ),
-                child: Icon(item.icon, color: colorScheme.onPrimaryContainer),
-              ),
-            ],
+                // You can add a Spacer or more padding here if you want the icon/text to be further apart
+              ],
+            ),
           ),
         ),
       ),
