@@ -13,7 +13,7 @@ import 'package:smart_notes/screens/note/widgets/note_app_bar.dart';
 import 'package:smart_notes/screens/note/widgets/note_bottom_bar.dart';
 import 'package:uuid/uuid.dart';
 
-// FLUTTER QUILL IMPORTS (Final Fix: No alias, relying on dart_quill_delta for Delta)
+// FLUTTER QUILL IMPORTS
 import 'package:flutter_quill/flutter_quill.dart';
 import 'package:dart_quill_delta/dart_quill_delta.dart'; // Relies on this for Delta
 import 'package:flutter_quill_extensions/flutter_quill_extensions.dart';
@@ -40,6 +40,9 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
   late Note _currentNote;
   bool _isNewNote = false;
   bool _showTextStyles = false;
+
+  // FIX: Final ChangeSource constant
+  static const ChangeSource _localChangeSource = ChangeSource.local;
 
   @override
   void initState() {
@@ -69,7 +72,6 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
       );
     } catch (e) {
       _quillController = QuillController(
-        // Delta is resolved via dart_quill_delta
         document: Document.fromDelta(Delta()..insert(_currentNote.content)),
         selection: const TextSelection.collapsed(offset: 0),
       );
@@ -120,13 +122,21 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
         _currentNote.imageUrl == null &&
         _currentNote.audioPath == null;
 
+    // FIX: Empty Note Saving Logic
     if (isEffectivelyEmpty) {
-      if (!_isNewNote) {
+      // Check if this note is currently in the provider's list (i.e., it was saved at least once)
+      final noteExists =
+          ref.read(noteProvider).any((n) => n.id == _currentNote.id);
+
+      if (noteExists) {
+        // Delete it if it exists and is now empty
         ref.read(noteProvider.notifier).permanentlyDeleteNote(_currentNote.id);
       }
+      // If it's a brand new note that was never saved, just exit (it won't be saved).
       return;
     }
 
+    // Save the note if it is NOT empty
     ref.read(noteProvider.notifier).updateNote(_currentNote);
 
     if (_isNewNote) {
@@ -159,7 +169,7 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
       _quillController.document.insert(cursorPosition, extractedText);
       _quillController.updateSelection(
         TextSelection.collapsed(offset: cursorPosition + extractedText.length),
-        ChangeSource.local,
+        _localChangeSource,
       );
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Text extracted and added to note.'),
@@ -180,7 +190,7 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
       _quillController.updateSelection(
         TextSelection.collapsed(
             offset: _quillController.selection.baseOffset + 1),
-        ChangeSource.local,
+        _localChangeSource,
       );
     }
   }
@@ -259,6 +269,7 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
       appBar: NoteAppBar(note: _currentNote),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
+        // Removed AbsorbPointer to allow normal taps
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Column(
@@ -283,7 +294,7 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
                 ),
               if (_currentNote.checklist.isNotEmpty) _buildChecklist(),
 
-              // FIX: Switch to QuillEditor and add placeholder
+              // Quill Editor
               QuillEditor(
                 controller: _quillController,
                 focusNode: _quillFocusNode,
@@ -291,7 +302,6 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
                 config: QuillEditorConfig(
                   placeholder: 'Start typing your notes...',
                   padding: EdgeInsets.zero,
-                  // REMOVED: readOnly: false, <- This is the source of the conflict.
                   embedBuilders: FlutterQuillEmbeds.editorBuilders(),
                 ),
               ),
@@ -312,11 +322,21 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
             builder: (context, child) {
               return NoteBottomBar(
                 note: _currentNote,
+                // FIX: Unfocus on Add/Style tap
                 onAddTap: () => FocusScope.of(context).unfocus(),
-                onStyleTap: () =>
-                    setState(() => _showTextStyles = !_showTextStyles),
-                onUndoTap: _quillController.undo,
-                onRedoTap: _quillController.redo,
+                onStyleTap: () {
+                  FocusScope.of(context)
+                      .unfocus(); // Unfocus before showing bar
+                  setState(() => _showTextStyles = !_showTextStyles);
+                },
+                onUndoTap: () {
+                  _quillController.undo();
+                  FocusScope.of(context).unfocus(); // Unfocus after action
+                },
+                onRedoTap: () {
+                  _quillController.redo();
+                  FocusScope.of(context).unfocus(); // Unfocus after action
+                },
                 canUndo: _quillController.hasUndo,
                 canRedo: _quillController.hasRedo,
                 onMediaSelect: ({required String type}) async {
@@ -345,6 +365,7 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
 
   Widget _buildChecklist() {
     return Column(
+      // ... (rest of _buildChecklist)
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ListView.builder(
@@ -405,49 +426,52 @@ class _NoteScreenState extends ConsumerState<NoteScreen> {
   }
 }
 
+// FIX: Style Icon Alignment & Remove Close Button
 class _QuillTextStyleBar extends StatelessWidget {
   final QuillController controller;
   final VoidCallback onClose;
 
   const _QuillTextStyleBar({required this.controller, required this.onClose});
 
+  // Helper widget to force-center the toolbar button (FIX)
+  Widget _buildStyledButton(Widget button) {
+    return Container(
+      width: 44, // Slightly less than standard icon button (48) for a snug fit
+      height: 44,
+      margin:
+          const EdgeInsets.symmetric(horizontal: 2), // Small horizontal margin
+      child: Center(child: button), // Center the button within the space
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Helper widget to force-center the toolbar button (FIX 1)
-    Widget buildStyledButton(Widget button) {
-      return SizedBox(
-        width: 48, // Standard button width
-        height: 48, // Standard button height
-        child: Center(child: button), // Center the button within the space
-      );
-    }
-
     return BottomAppBar(
       height: 48,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Basic text styles - Wrapped in buildStyledButton
-          buildStyledButton(
+          // Basic text styles - Wrapped in _buildStyledButton
+          _buildStyledButton(
             QuillToolbarToggleStyleButton(
               controller: controller,
               attribute: Attribute.bold,
             ),
           ),
-          buildStyledButton(
+          _buildStyledButton(
             QuillToolbarToggleStyleButton(
               controller: controller,
               attribute: Attribute.italic,
             ),
           ),
-          buildStyledButton(
+          _buildStyledButton(
             QuillToolbarToggleStyleButton(
               controller: controller,
               attribute: Attribute.underline,
             ),
           ),
-          buildStyledButton(
+          _buildStyledButton(
             QuillToolbarToggleStyleButton(
               controller: controller,
               attribute: Attribute.strikeThrough,
@@ -455,7 +479,7 @@ class _QuillTextStyleBar extends StatelessWidget {
           ),
 
           // Highlight/Background Color Option
-          buildStyledButton(
+          _buildStyledButton(
             QuillToolbarColorButton(
               controller: controller,
               isBackground: true,
@@ -463,11 +487,7 @@ class _QuillTextStyleBar extends StatelessWidget {
           ),
 
           const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.close),
-            tooltip: 'Close',
-            onPressed: onClose,
-          ),
+          // REMOVED: Close IconButton per request
         ],
       ),
     );
